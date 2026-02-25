@@ -1,29 +1,51 @@
 import streamlit as st
+import joblib
 import numpy as np
-import pickle
+import pandas as pd
+import requests
+import plotly.express as px
+from streamlit_lottie import st_lottie
+import json
 import time
-from PIL import Image
 
-# ---------------- PAGE CONFIG ---------------- #
-st.set_page_config(
-    page_title="AgriIntel AI",
-    page_icon="🌾",
-    layout="wide"
-)
+st.set_page_config(page_title="AgriIntel AI", layout="wide")
 
-# ---------------- LOAD MODEL ---------------- #
-# Make sure model.pkl exists in same folder
-try:
-    model = pickle.load(open("model.pkl", "rb"))
-except:
-    model = None
+# -------------------------
+# Load Models (Cached)
+# -------------------------
+@st.cache_resource
+def load_models():
+    crop_model = joblib.load("models/crop_model.pkl")
+    crop_encoder = joblib.load("models/crop_encoder.pkl")
+    fert_model = joblib.load("models/fertilizer_model.pkl")
+    fert_encoder = joblib.load("models/fertilizer_encoder.pkl")
+    fert_crop_encoder = joblib.load("models/fert_crop_encoder.pkl")
+    metadata = joblib.load("models/metadata.pkl")
+    return crop_model, crop_encoder, fert_model, fert_encoder, fert_crop_encoder, metadata
 
-# ---------------- CUSTOM CSS ---------------- #
+crop_model, crop_encoder, fert_model, fert_encoder, fert_crop_encoder, metadata = load_models()
+
+# -------------------------
+# Weather Fetch Function (UNCHANGED)
+# -------------------------
+def fetch_weather(city):
+    api_key = st.secrets["weather_api"]
+    url = f"https://api.openweathermap.org/data/2.5/weather?q={city}&appid={api_key}&units=metric"
+    response = requests.get(url).json()
+
+    temperature = response["main"]["temp"]
+    humidity = response["main"]["humidity"]
+    rainfall = response.get("rain", {}).get("1h", 0)
+
+    return temperature, humidity, rainfall
+
+# -------------------------
+# PREMIUM UI CSS
+# -------------------------
 st.markdown("""
 <style>
-
 .stApp {
-    background: linear-gradient(rgba(10,20,40,0.9), rgba(0,0,0,0.95)),
+    background: linear-gradient(rgba(10,20,40,0.92), rgba(0,0,0,0.95)),
                 url("https://images.unsplash.com/photo-1500382017468-9049fed747ef");
     background-size: cover;
     background-position: center;
@@ -31,19 +53,8 @@ st.markdown("""
     color: white;
 }
 
-/* Glass Card */
-.glass-card {
-    background: rgba(255, 255, 255, 0.08);
-    padding: 30px;
-    border-radius: 20px;
-    backdrop-filter: blur(14px);
-    box-shadow: 0 8px 32px rgba(0,0,0,0.6);
-    border: 1px solid rgba(255,255,255,0.2);
-}
-
-/* Title */
 .main-title {
-    font-size: 45px;
+    font-size: 48px;
     font-weight: bold;
     text-align: center;
     background: linear-gradient(90deg, #00ffcc, #00ccff);
@@ -51,7 +62,15 @@ st.markdown("""
     -webkit-text-fill-color: transparent;
 }
 
-/* Button */
+.glass {
+    background: rgba(255,255,255,0.08);
+    padding: 30px;
+    border-radius: 20px;
+    backdrop-filter: blur(14px);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+    border: 1px solid rgba(255,255,255,0.2);
+}
+
 div.stButton > button {
     background: linear-gradient(90deg, #00ffcc, #00ccff);
     color: black;
@@ -65,108 +84,104 @@ div.stButton > button {
 div.stButton > button:hover {
     transform: scale(1.05);
 }
-
-/* Result Box */
-.result-box {
-    background: linear-gradient(135deg, #00ffcc, #0066ff);
-    padding: 25px;
-    border-radius: 15px;
-    text-align: center;
-    font-size: 22px;
-    font-weight: bold;
-    color: black;
-    box-shadow: 0px 0px 25px rgba(0,255,255,0.6);
-}
-
 </style>
 """, unsafe_allow_html=True)
 
-# ---------------- HEADER ---------------- #
+# -------------------------
+# HEADER
+# -------------------------
 st.markdown('<div class="main-title">🌾 AgriIntel AI</div>', unsafe_allow_html=True)
 st.markdown("### Smart Crop & Fertilizer Recommendation System")
 st.markdown("---")
 
-# ---------------- KPI METRICS ---------------- #
-col1, col2, col3 = st.columns(3)
-col1.metric("Model Accuracy", "95%", "↑ 3%")
-col2.metric("Supported Crops", "22+")
-col3.metric("Prediction Speed", "0.2 sec")
-
-st.markdown("")
-
-# ---------------- INPUT SECTION ---------------- #
-st.markdown('<div class="glass-card">', unsafe_allow_html=True)
+# -------------------------
+# INPUT SECTION
+# -------------------------
+st.markdown('<div class="glass">', unsafe_allow_html=True)
 
 col1, col2 = st.columns(2)
 
 with col1:
     st.subheader("🌱 Soil Nutrients")
-    N = st.number_input("Nitrogen (N)", 0)
-    P = st.number_input("Phosphorus (P)", 0)
-    K = st.number_input("Potassium (K)", 0)
-    ph = st.number_input("Soil pH", 0.0)
+    N = st.number_input("Nitrogen (N)", 0, 200)
+    P = st.number_input("Phosphorus (P)", 0, 200)
+    K = st.number_input("Potassium (K)", 0, 200)
+    ph = st.number_input("pH", 0.0, 14.0)
 
 with col2:
-    st.subheader("🌡️ Environmental Conditions")
-    temperature = st.number_input("Temperature (°C)", 0.0)
-    humidity = st.number_input("Humidity (%)", 0.0)
-    rainfall = st.number_input("Rainfall (mm)", 0.0)
+    st.subheader("🌍 Location & Weather")
+    location = st.text_input("Enter Location (e.g., New Delhi)")
 
 predict = st.button("🚀 Predict Optimal Crop")
 
 st.markdown('</div>', unsafe_allow_html=True)
 
-# ---------------- FERTILIZER LOGIC ---------------- #
-def fertilizer_recommendation(N, P, K):
-    if N < 50:
-        return "Apply Nitrogen-rich fertilizer (Urea)"
-    elif P < 40:
-        return "Apply Phosphorus fertilizer (DAP)"
-    elif K < 40:
-        return "Apply Potassium fertilizer (MOP)"
-    else:
-        return "Soil nutrients are balanced"
-
-# ---------------- PREDICTION ---------------- #
+# -------------------------
+# PREDICTION
+# -------------------------
 if predict:
 
-    with st.spinner("Analyzing Soil & Climate Data... 🌧️"):
-        time.sleep(2)
+    try:
+        with st.spinner("Fetching real-time weather data... 🌦️"):
+            temp, humidity, rainfall = fetch_weather(location)
+            time.sleep(1)
 
-    if model:
-        features = np.array([[N, P, K, temperature, humidity, ph, rainfall]])
-        prediction = model.predict(features)[0]
-        probabilities = model.predict_proba(features)
-        confidence = round(np.max(probabilities) * 100, 2)
-    else:
-        prediction = "Rice"
-        confidence = 95.00
+        # Weather Card
+        st.markdown(f"""
+        <div class="glass">
+        🌡 Temperature: {temp} °C &nbsp;&nbsp;&nbsp;
+        💧 Humidity: {humidity}% &nbsp;&nbsp;&nbsp;
+        🌧 Rainfall: {rainfall} mm
+        </div>
+        """, unsafe_allow_html=True)
 
-    fertilizer = fertilizer_recommendation(N, P, K)
+        # ---------------- Crop Prediction ----------------
+        crop_input = np.array([[N, P, K, temp, humidity, ph, rainfall]])
+        crop_probs = crop_model.predict_proba(crop_input)[0]
+        top3_idx = np.argsort(crop_probs)[-3:][::-1]
+        top3_crops = crop_encoder.inverse_transform(top3_idx)
+        top3_conf = crop_probs[top3_idx]
 
-    st.markdown("")
+        st.markdown("## 🌾 Top 3 Crop Recommendations")
 
-    # Result Card
-    st.markdown(f"""
-    <div class="result-box">
-        🌾 Recommended Crop: {prediction} <br><br>
-        🎯 Confidence Score: {confidence}% <br><br>
-        🧪 Fertilizer Advice: {fertilizer}
-    </div>
-    """, unsafe_allow_html=True)
+        for crop, conf in zip(top3_crops, top3_conf):
+            st.progress(float(conf))
+            st.write(f"**{crop}** — {conf*100:.2f}%")
 
-    st.markdown("")
+        # ---------------- Fertilizer ----------------
+        crop_encoded = fert_crop_encoder.transform([top3_crops[0]])[0]
+        fert_input = np.array([[N, P, K, temp, humidity, rainfall, crop_encoded]])
+        fert_probs = fert_model.predict_proba(fert_input)[0]
+        fert_idx = np.argmax(fert_probs)
+        fert_label = fert_encoder.inverse_transform([fert_idx])[0]
+        fert_conf = fert_probs[fert_idx]
 
-    # Crop Image Display
-    crop_images = {
-        "Rice": "https://cdn.pixabay.com/photo/2017/01/20/00/30/rice-1995055_960_720.jpg",
-        "Wheat": "https://cdn.pixabay.com/photo/2016/08/11/23/48/wheat-1586794_960_720.jpg",
-        "Maize": "https://cdn.pixabay.com/photo/2017/09/26/13/41/corn-2784901_960_720.jpg"
-    }
+        st.markdown("## 💊 Recommended Fertilizer")
+        st.success(f"{fert_label} — {fert_conf*100:.2f}% confidence")
 
-    if prediction in crop_images:
-        st.image(crop_images[prediction], use_column_width=True)
+        # ---------------- Feature Importance ----------------
+        st.markdown("## 📊 Crop Model Feature Importance")
+        importances = crop_model.calibrated_classifiers_[0].estimator.feature_importances_
+        importance_df = pd.DataFrame({
+            "Feature": metadata["crop_features"],
+            "Importance": importances
+        }).sort_values(by="Importance", ascending=False)
 
-# ---------------- FOOTER ---------------- #
+        fig = px.bar(
+            importance_df,
+            x="Feature",
+            y="Importance",
+            color="Importance",
+            template="plotly_dark"
+        )
+
+        st.plotly_chart(fig, use_container_width=True)
+
+    except Exception:
+        st.error("Error fetching weather. Check location or API key in Streamlit secrets.")
+
+# -------------------------
+# FOOTER
+# -------------------------
 st.markdown("---")
 st.markdown("© 2026 AgriIntel AI | Built with ❤️ using Machine Learning & Streamlit")
