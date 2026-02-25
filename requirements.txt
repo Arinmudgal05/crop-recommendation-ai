@@ -1,8 +1,5 @@
 streamlit
 numpy
-pandas
 scikit-learn
 xgboost
-plotly
-requests
-streamlit-lottie
+Pillow
