@@ -193,7 +193,7 @@ if predict:
             template="plotly_white"
         )
 
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="stretch")
 
     except Exception:
         st.error("Error fetching weather. Check location or API key.")
@@ -203,3 +203,4 @@ if predict:
 # -------------------------
 st.markdown("---")
 st.markdown("© 2026 AgriIntel AI | Built with ❤️ using Machine Learning & Streamlit")
+
