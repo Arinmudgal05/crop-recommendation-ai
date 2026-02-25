@@ -4,14 +4,12 @@ import numpy as np
 import pandas as pd
 import requests
 import plotly.express as px
-from streamlit_lottie import st_lottie
-import json
 import time
 
 st.set_page_config(page_title="AgriIntel AI", layout="wide")
 
 # -------------------------
-# Load Models (Cached)
+# Load Models (UNCHANGED)
 # -------------------------
 @st.cache_resource
 def load_models():
@@ -26,7 +24,7 @@ def load_models():
 crop_model, crop_encoder, fert_model, fert_encoder, fert_crop_encoder, metadata = load_models()
 
 # -------------------------
-# Weather Fetch Function (UNCHANGED)
+# Weather Fetch (UNCHANGED)
 # -------------------------
 def fetch_weather(city):
     api_key = st.secrets["weather_api"]
@@ -40,40 +38,41 @@ def fetch_weather(city):
     return temperature, humidity, rainfall
 
 # -------------------------
-# PREMIUM UI CSS
+# PREMIUM LIGHT AGRI UI
 # -------------------------
 st.markdown("""
 <style>
 .stApp {
-    background: linear-gradient(rgba(10,20,40,0.92), rgba(0,0,0,0.95)),
-                url("https://images.unsplash.com/photo-1500382017468-9049fed747ef");
+    background: linear-gradient(rgba(255,255,255,0.85), rgba(255,255,255,0.9)),
+                url("https://images.unsplash.com/photo-1500937386664-56d1dfef3854");
     background-size: cover;
     background-position: center;
     background-attachment: fixed;
-    color: white;
+    color: #1b4332;
 }
 
+/* Title */
 .main-title {
-    font-size: 48px;
-    font-weight: bold;
+    font-size: 50px;
+    font-weight: 800;
     text-align: center;
-    background: linear-gradient(90deg, #00ffcc, #00ccff);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
+    color: #2d6a4f;
 }
 
+/* Glass card */
 .glass {
-    background: rgba(255,255,255,0.08);
+    background: rgba(255,255,255,0.7);
     padding: 30px;
     border-radius: 20px;
-    backdrop-filter: blur(14px);
-    box-shadow: 0 8px 32px rgba(0,0,0,0.6);
-    border: 1px solid rgba(255,255,255,0.2);
+    backdrop-filter: blur(10px);
+    box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+    border: 1px solid rgba(0,0,0,0.05);
 }
 
+/* Button */
 div.stButton > button {
-    background: linear-gradient(90deg, #00ffcc, #00ccff);
-    color: black;
+    background: linear-gradient(90deg, #52b788, #40916c);
+    color: white;
     font-weight: bold;
     border-radius: 12px;
     height: 3em;
@@ -83,6 +82,21 @@ div.stButton > button {
 
 div.stButton > button:hover {
     transform: scale(1.05);
+    background: linear-gradient(90deg, #40916c, #2d6a4f);
+}
+
+/* Rain animation */
+.rain {
+  position: fixed;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  background-image: url("https://i.imgur.com/NM6v4.gif");
+  background-repeat: repeat;
+  opacity: 0.25;
+  top: 0;
+  left: 0;
+  z-index: 0;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -121,6 +135,9 @@ st.markdown('</div>', unsafe_allow_html=True)
 # -------------------------
 if predict:
 
+    # Rain Animation Trigger
+    st.markdown('<div class="rain"></div>', unsafe_allow_html=True)
+
     try:
         with st.spinner("Fetching real-time weather data... 🌦️"):
             temp, humidity, rainfall = fetch_weather(location)
@@ -135,7 +152,7 @@ if predict:
         </div>
         """, unsafe_allow_html=True)
 
-        # ---------------- Crop Prediction ----------------
+        # Crop Prediction
         crop_input = np.array([[N, P, K, temp, humidity, ph, rainfall]])
         crop_probs = crop_model.predict_proba(crop_input)[0]
         top3_idx = np.argsort(crop_probs)[-3:][::-1]
@@ -148,7 +165,7 @@ if predict:
             st.progress(float(conf))
             st.write(f"**{crop}** — {conf*100:.2f}%")
 
-        # ---------------- Fertilizer ----------------
+        # Fertilizer
         crop_encoded = fert_crop_encoder.transform([top3_crops[0]])[0]
         fert_input = np.array([[N, P, K, temp, humidity, rainfall, crop_encoded]])
         fert_probs = fert_model.predict_proba(fert_input)[0]
@@ -159,9 +176,10 @@ if predict:
         st.markdown("## 💊 Recommended Fertilizer")
         st.success(f"{fert_label} — {fert_conf*100:.2f}% confidence")
 
-        # ---------------- Feature Importance ----------------
+        # Feature Importance
         st.markdown("## 📊 Crop Model Feature Importance")
         importances = crop_model.calibrated_classifiers_[0].estimator.feature_importances_
+
         importance_df = pd.DataFrame({
             "Feature": metadata["crop_features"],
             "Importance": importances
@@ -172,13 +190,13 @@ if predict:
             x="Feature",
             y="Importance",
             color="Importance",
-            template="plotly_dark"
+            template="plotly_white"
         )
 
         st.plotly_chart(fig, use_container_width=True)
 
     except Exception:
-        st.error("Error fetching weather. Check location or API key in Streamlit secrets.")
+        st.error("Error fetching weather. Check location or API key.")
 
 # -------------------------
 # FOOTER
