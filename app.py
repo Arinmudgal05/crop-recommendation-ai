@@ -9,7 +9,7 @@ import time
 st.set_page_config(page_title="AgriIntel AI", layout="wide")
 
 # -------------------------
-# Load Models
+# LOAD MODELS
 # -------------------------
 @st.cache_resource
 def load_models():
@@ -24,205 +24,192 @@ def load_models():
 crop_model, crop_encoder, fert_model, fert_encoder, fert_crop_encoder, metadata = load_models()
 
 # -------------------------
-# Weather Function (Safe)
+# WEATHER FUNCTION
 # -------------------------
 def fetch_weather(city):
-
     api_key = st.secrets.get("weather_api")
-
-    if not api_key:
-        st.error("Weather API key missing. Add it in Streamlit Secrets.")
-        st.stop()
-
     url = f"https://api.openweathermap.org/data/2.5/weather?q={city}&appid={api_key}&units=metric"
 
-    response = requests.get(url)
+    response = requests.get(url).json()
 
-    if response.status_code != 200:
-        st.error("Weather API error. Check city name or API key.")
-        st.stop()
-
-    data = response.json()
-
-    temperature = data["main"]["temp"]
-    humidity = data["main"]["humidity"]
-    rainfall = data.get("rain", {}).get("1h", 0)
+    temperature = response["main"]["temp"]
+    humidity = response["main"]["humidity"]
+    rainfall = response.get("rain", {}).get("1h", 0)
 
     return temperature, humidity, rainfall
 
+
 # -------------------------
-# UI CSS
+# PREMIUM UI
 # -------------------------
+
 st.markdown("""
 <style>
 
-.stApp {
-    background: linear-gradient(rgba(255,255,255,0.85), rgba(255,255,255,0.9)),
-                url("https://images.unsplash.com/photo-1500937386664-56d1dfef3854");
-    background-size: cover;
-    background-position: center;
-    background-attachment: fixed;
+.stApp{
+background-image:url("https://images.unsplash.com/photo-1500937386664-56d1dfef3854");
+background-size:cover;
+background-attachment:fixed;
 }
 
-.main-title {
-    font-size: 48px;
-    font-weight: 800;
-    text-align: center;
-    color: #2d6a4f;
+.title{
+text-align:center;
+font-size:55px;
+font-weight:800;
+color:#1b4332;
 }
 
-.glass {
-    background: rgba(255,255,255,0.75);
-    padding: 30px;
-    border-radius: 18px;
-    backdrop-filter: blur(10px);
-    box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+.subtitle{
+text-align:center;
+font-size:22px;
+color:#344e41;
+margin-bottom:30px;
 }
 
-div.stButton > button {
-    background: linear-gradient(90deg,#52b788,#40916c);
-    color: white;
-    font-weight: bold;
-    border-radius: 10px;
-    height: 3em;
-    width: 100%;
+.card{
+background:rgba(255,255,255,0.85);
+padding:35px;
+border-radius:18px;
+box-shadow:0 8px 30px rgba(0,0,0,0.15);
 }
 
-div.stButton > button:hover {
-    transform: scale(1.05);
+button[kind="primary"]{
+background:#2d6a4f;
+border:none;
+border-radius:10px;
+font-weight:bold;
 }
 
-.rain {
-  position: fixed;
-  width: 100%;
-  height: 100%;
-  pointer-events: none;
-  background-image: url("https://media.giphy.com/media/xT0xeJpnrWC4XWblEk/giphy.gif");
-  background-repeat: repeat;
-  opacity: 0.2;
-  top: 0;
-  left: 0;
+.rain{
+position:fixed;
+width:100%;
+height:100%;
+background:url("https://i.imgur.com/MK3eW3As.gif");
+opacity:0.15;
+pointer-events:none;
 }
 
 </style>
 """, unsafe_allow_html=True)
 
-# -------------------------
-# Header
-# -------------------------
-st.markdown('<div class="main-title">🌾 AgriIntel AI</div>', unsafe_allow_html=True)
-st.markdown("### Smart Crop & Fertilizer Recommendation System")
-st.markdown("---")
 
 # -------------------------
-# Input Section
+# HEADER
 # -------------------------
-st.markdown('<div class="glass">', unsafe_allow_html=True)
+
+st.markdown('<div class="title">🌾 AgriIntel AI</div>', unsafe_allow_html=True)
+st.markdown('<div class="subtitle">Smart Crop & Fertilizer Recommendation System</div>', unsafe_allow_html=True)
+
+
+# -------------------------
+# INPUT CARD
+# -------------------------
+
+st.markdown('<div class="card">', unsafe_allow_html=True)
 
 col1, col2 = st.columns(2)
 
 with col1:
+
     st.subheader("🌱 Soil Nutrients")
 
-    N = st.number_input("Nitrogen (N)", 0, 200)
-    P = st.number_input("Phosphorus (P)", 0, 200)
-    K = st.number_input("Potassium (K)", 0, 200)
-    ph = st.number_input("Soil pH", 0.0, 14.0)
+    N = st.number_input("Nitrogen (N)",0,200)
+    P = st.number_input("Phosphorus (P)",0,200)
+    K = st.number_input("Potassium (K)",0,200)
+    ph = st.number_input("Soil pH",0.0,14.0)
 
 with col2:
-    st.subheader("🌍 Location & Weather")
 
-    location = st.text_input("Enter City (Example: New Delhi)")
+    st.subheader("🌍 Location")
+
+    location = st.text_input("Enter city (example: Delhi)")
+
 
 predict = st.button("🚀 Predict Optimal Crop")
 
 st.markdown('</div>', unsafe_allow_html=True)
 
-# -------------------------
-# Prediction
-# -------------------------
-if predict:
 
-    if location.strip() == "":
-        st.warning("Please enter a location.")
-        st.stop()
+# -------------------------
+# PREDICTION
+# -------------------------
+
+if predict:
 
     st.markdown('<div class="rain"></div>', unsafe_allow_html=True)
 
-    with st.spinner("Fetching weather data..."):
-        temp, humidity, rainfall = fetch_weather(location)
-        time.sleep(1)
+    try:
 
-    st.markdown(f"""
-    <div class="glass">
-    🌡 Temperature: {temp} °C &nbsp;&nbsp;&nbsp;
-    💧 Humidity: {humidity}% &nbsp;&nbsp;&nbsp;
-    🌧 Rainfall: {rainfall} mm
-    </div>
-    """, unsafe_allow_html=True)
+        with st.spinner("Fetching live weather..."):
+            temp, humidity, rainfall = fetch_weather(location)
+            time.sleep(1)
 
-    # -------------------------
-    # Crop Prediction
-    # -------------------------
-    crop_input = np.array([[N, P, K, temp, humidity, ph, rainfall]])
+        st.success(f"Temperature: {temp}°C | Humidity: {humidity}% | Rainfall: {rainfall} mm")
 
-    crop_probs = crop_model.predict_proba(crop_input)[0]
 
-    top3_idx = np.argsort(crop_probs)[-3:][::-1]
+        # Crop prediction
 
-    top3_crops = crop_encoder.inverse_transform(top3_idx)
+        crop_input = np.array([[N,P,K,temp,humidity,ph,rainfall]])
 
-    top3_conf = crop_probs[top3_idx]
+        crop_probs = crop_model.predict_proba(crop_input)[0]
 
-    st.markdown("## 🌾 Top 3 Crop Recommendations")
+        top3_idx = np.argsort(crop_probs)[-3:][::-1]
 
-    for crop, conf in zip(top3_crops, top3_conf):
-        st.progress(float(conf))
-        st.write(f"**{crop} — {conf*100:.2f}%**")
+        top3_crops = crop_encoder.inverse_transform(top3_idx)
 
-    # -------------------------
-    # Fertilizer Recommendation
-    # -------------------------
-    crop_encoded = fert_crop_encoder.transform([top3_crops[0]])[0]
+        top3_conf = crop_probs[top3_idx]
 
-    fert_input = np.array([[N, P, K, temp, humidity, rainfall, crop_encoded]])
 
-    fert_probs = fert_model.predict_proba(fert_input)[0]
+        st.subheader("🌾 Top Crop Recommendations")
 
-    fert_idx = np.argmax(fert_probs)
+        for crop,conf in zip(top3_crops,top3_conf):
 
-    fert_label = fert_encoder.inverse_transform([fert_idx])[0]
+            st.progress(float(conf))
+            st.write(f"**{crop} — {conf*100:.2f}%**")
 
-    fert_conf = fert_probs[fert_idx]
 
-    st.markdown("## 💊 Recommended Fertilizer")
 
-    st.success(f"{fert_label} — {fert_conf*100:.2f}% confidence")
+        # Fertilizer prediction
 
-    # -------------------------
-    # Feature Importance
-    # -------------------------
-    st.markdown("## 📊 Crop Model Feature Importance")
+        crop_encoded = fert_crop_encoder.transform([top3_crops[0]])[0]
 
-    importances = crop_model.calibrated_classifiers_[0].estimator.feature_importances_
+        fert_input = np.array([[N,P,K,temp,humidity,rainfall,crop_encoded]])
 
-    importance_df = pd.DataFrame({
-        "Feature": metadata["crop_features"],
-        "Importance": importances
-    }).sort_values(by="Importance", ascending=False)
+        fert_probs = fert_model.predict_proba(fert_input)[0]
 
-    fig = px.bar(
-        importance_df,
-        x="Feature",
-        y="Importance",
-        color="Importance",
-        template="plotly_white"
-    )
+        fert_idx = np.argmax(fert_probs)
 
-    st.plotly_chart(fig, width="stretch")
+        fert_label = fert_encoder.inverse_transform([fert_idx])[0]
 
-# -------------------------
-# Footer
-# -------------------------
-st.markdown("---")
-st.markdown("© 2026 AgriIntel AI | Built with Machine Learning & Streamlit")
+        fert_conf = fert_probs[fert_idx]
+
+
+        st.subheader("💊 Recommended Fertilizer")
+
+        st.success(f"{fert_label} — {fert_conf*100:.2f}% confidence")
+
+
+
+        # Feature importance
+
+        st.subheader("📊 Feature Importance")
+
+        importances = crop_model.calibrated_classifiers_[0].estimator.feature_importances_
+
+        importance_df = pd.DataFrame({
+            "Feature":metadata["crop_features"],
+            "Importance":importances
+        }).sort_values(by="Importance",ascending=False)
+
+        fig = px.bar(
+            importance_df,
+            x="Feature",
+            y="Importance",
+            color="Importance"
+        )
+
+        st.plotly_chart(fig,width="stretch")
+
+    except Exception:
+
+        st.error("Weather fetch failed. Try 'Delhi' or 'Mumbai'.")
