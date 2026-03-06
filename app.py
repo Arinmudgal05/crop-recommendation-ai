@@ -31,16 +31,24 @@ def fetch_weather(city):
 
     api_key = st.secrets.get("weather_api")
 
-    url = f"https://api.openweathermap.org/data/2.5/weather?q={city},IN&appid={api_key}&units=metric"
+    if not city:
+        raise Exception("City missing")
 
-    response = requests.get(url).json()
+    url = f"https://api.openweathermap.org/data/2.5/weather?q={city}&appid={api_key}&units=metric"
 
-    if response.get("cod") != 200:
+    response = requests.get(url)
+
+    if response.status_code != 200:
+        raise Exception("API request failed")
+
+    data = response.json()
+
+    if "main" not in data:
         raise Exception("City not found")
 
-    temperature = response["main"]["temp"]
-    humidity = response["main"]["humidity"]
-    rainfall = response.get("rain", {}).get("1h", 0)
+    temperature = data["main"]["temp"]
+    humidity = data["main"]["humidity"]
+    rainfall = data.get("rain", {}).get("1h", 0)
 
     return temperature, humidity, rainfall
 
@@ -277,3 +285,4 @@ if predict:
     except Exception:
 
         st.error("Weather API failed. Try a bigger city like Delhi, Indore, Jaipur.")
+
