@@ -28,17 +28,21 @@ crop_model, crop_encoder, fert_model, fert_encoder, fert_crop_encoder, metadata 
 # WEATHER FUNCTION
 # -------------------------
 def fetch_weather(city):
-    api_key = st.secrets["weather_api"]
+    try:
+        api_key = st.secrets["weather_api"]
 
-    url = f"https://api.openweathermap.org/data/2.5/weather?q={city}&appid={api_key}&units=metric"
+        url = f"http://api.weatherapi.com/v1/current.json?key={api_key}&q={city}"
 
-    response = requests.get(url).json()
+        response = requests.get(url).json()
 
-    temperature = response["main"]["temp"]
-    humidity = response["main"]["humidity"]
-    rainfall = response.get("rain", {}).get("1h", 0)
+        temp = response["current"]["temp_c"]
+        humidity = response["current"]["humidity"]
+        rainfall = response["current"]["precip_mm"]
 
-    return temperature, humidity, rainfall
+        return temp, humidity, rainfall
+
+    except:
+        return None
 
 
 # -------------------------
@@ -273,6 +277,7 @@ if predict:
     except Exception:
 
         st.error("Weather API failed. Try a bigger city like Delhi, Indore, Jaipur.")
+
 
 
 
