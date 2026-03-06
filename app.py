@@ -34,21 +34,23 @@ def fetch_weather(city):
     if not city:
         raise Exception("City missing")
 
-    url = f"https://api.openweathermap.org/data/2.5/weather?q={city}&appid={api_key}&units=metric"
+    # STEP 1 — Get coordinates from city name
+    geo_url = f"http://api.openweathermap.org/geo/1.0/direct?q={city}&limit=1&appid={api_key}"
+    geo_response = requests.get(geo_url).json()
 
-    response = requests.get(url)
+    if len(geo_response) == 0:
+        raise Exception("Location not found")
 
-    if response.status_code != 200:
-        raise Exception("API request failed")
+    lat = geo_response[0]["lat"]
+    lon = geo_response[0]["lon"]
 
-    data = response.json()
+    # STEP 2 — Fetch weather using coordinates
+    weather_url = f"https://api.openweathermap.org/data/2.5/weather?lat={lat}&lon={lon}&appid={api_key}&units=metric"
+    weather_response = requests.get(weather_url).json()
 
-    if "main" not in data:
-        raise Exception("City not found")
-
-    temperature = data["main"]["temp"]
-    humidity = data["main"]["humidity"]
-    rainfall = data.get("rain", {}).get("1h", 0)
+    temperature = weather_response["main"]["temp"]
+    humidity = weather_response["main"]["humidity"]
+    rainfall = weather_response.get("rain", {}).get("1h", 0)
 
     return temperature, humidity, rainfall
 
@@ -285,4 +287,5 @@ if predict:
     except Exception:
 
         st.error("Weather API failed. Try a bigger city like Delhi, Indore, Jaipur.")
+
 
