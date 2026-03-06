@@ -23,14 +23,20 @@ def load_models():
 
 crop_model, crop_encoder, fert_model, fert_encoder, fert_crop_encoder, metadata = load_models()
 
+
 # -------------------------
 # WEATHER FUNCTION
 # -------------------------
 def fetch_weather(city):
+
     api_key = st.secrets.get("weather_api")
-    url = f"https://api.openweathermap.org/data/2.5/weather?q={city}&appid={api_key}&units=metric"
+
+    url = f"https://api.openweathermap.org/data/2.5/weather?q={city},IN&appid={api_key}&units=metric"
 
     response = requests.get(url).json()
+
+    if response.get("cod") != 200:
+        raise Exception("City not found")
 
     temperature = response["main"]["temp"]
     humidity = response["main"]["humidity"]
@@ -40,13 +46,28 @@ def fetch_weather(city):
 
 
 # -------------------------
-# PREMIUM UI
+# CROP ICONS
 # -------------------------
+crop_icons = {
+    "rice":"🌾",
+    "maize":"🌽",
+    "banana":"🍌",
+    "mango":"🥭",
+    "apple":"🍎",
+    "grapes":"🍇",
+    "cotton":"🧶",
+    "coffee":"☕",
+    "chickpea":"🌱",
+    "lentil":"🌿"
+}
 
+
+# -------------------------
+# UI CSS
+# -------------------------
 st.markdown("""
 <style>
 
-/* Background */
 .stApp{
 background-image:url("https://images.unsplash.com/photo-1500937386664-56d1dfef3854");
 background-size:cover;
@@ -56,7 +77,7 @@ background-attachment:fixed;
 /* Title */
 .title{
 text-align:center;
-font-size:55px;
+font-size:52px;
 font-weight:800;
 color:#1b4332;
 }
@@ -64,73 +85,77 @@ color:#1b4332;
 /* Subtitle */
 .subtitle{
 text-align:center;
-font-size:22px;
+font-size:20px;
 color:#344e41;
 margin-bottom:30px;
 }
 
 /* Card */
 .card{
-background:rgba(255,255,255,0.9);
+background:rgba(255,255,255,0.95);
 padding:35px;
-border-radius:18px;
-box-shadow:0 8px 30px rgba(0,0,0,0.15);
+border-radius:20px;
+box-shadow:0 10px 35px rgba(0,0,0,0.15);
 }
 
-/* INPUT LABELS */
+/* Labels */
 label{
 color:#1b4332 !important;
-font-weight:600;
+font-weight:700 !important;
 }
 
-/* NUMBER INPUT TEXT */
+/* Inputs */
 input{
-color:#000000 !important;
+color:black !important;
+background:white !important;
 font-weight:600 !important;
 }
 
-/* NUMBER INPUT BOX */
 div[data-baseweb="input"]{
 background:white !important;
 border-radius:8px !important;
+border:1px solid #ccc !important;
 }
 
-/* TEXT INPUT */
-textarea, input[type="text"]{
-color:#000000 !important;
-background:white !important;
-}
-
-/* BUTTON */
+/* Button */
 button[kind="primary"]{
 background:#2d6a4f !important;
 color:white !important;
+border-radius:10px !important;
 font-weight:bold !important;
-border-radius:10px;
 }
 
-/* BUTTON HOVER */
 button[kind="primary"]:hover{
 background:#1b4332 !important;
 }
 
-/* RAIN ANIMATION */
+/* Weather card */
+.weather{
+background:#2d6a4f;
+color:white;
+padding:18px;
+border-radius:12px;
+font-size:18px;
+margin-bottom:20px;
+}
+
+/* Rain animation */
 .rain{
 position:fixed;
 width:100%;
 height:100%;
 background:url("https://i.imgur.com/MK3eW3As.gif");
-opacity:0.15;
+opacity:0.12;
 pointer-events:none;
 }
 
 </style>
 """, unsafe_allow_html=True)
 
+
 # -------------------------
 # HEADER
 # -------------------------
-
 st.markdown('<div class="title">🌾 AgriIntel AI</div>', unsafe_allow_html=True)
 st.markdown('<div class="subtitle">Smart Crop & Fertilizer Recommendation System</div>', unsafe_allow_html=True)
 
@@ -138,7 +163,6 @@ st.markdown('<div class="subtitle">Smart Crop & Fertilizer Recommendation System
 # -------------------------
 # INPUT CARD
 # -------------------------
-
 st.markdown('<div class="card">', unsafe_allow_html=True)
 
 col1, col2 = st.columns(2)
@@ -156,8 +180,10 @@ with col2:
 
     st.subheader("🌍 Location")
 
-    location = st.text_input("Enter city (example: Delhi)")
-
+    location = st.text_input(
+    "Enter city (example: Delhi, Indore, Jaipur)",
+    placeholder="Type your city name..."
+    )
 
 predict = st.button("🚀 Predict Optimal Crop")
 
@@ -167,7 +193,6 @@ st.markdown('</div>', unsafe_allow_html=True)
 # -------------------------
 # PREDICTION
 # -------------------------
-
 if predict:
 
     st.markdown('<div class="rain"></div>', unsafe_allow_html=True)
@@ -178,11 +203,17 @@ if predict:
             temp, humidity, rainfall = fetch_weather(location)
             time.sleep(1)
 
-        st.success(f"Temperature: {temp}°C | Humidity: {humidity}% | Rainfall: {rainfall} mm")
+        # WEATHER CARD
+        st.markdown(f"""
+        <div class="weather">
+        🌡 Temperature: {temp}°C &nbsp;&nbsp;&nbsp;
+        💧 Humidity: {humidity}% &nbsp;&nbsp;&nbsp;
+        🌧 Rainfall: {rainfall} mm
+        </div>
+        """, unsafe_allow_html=True)
 
 
-        # Crop prediction
-
+        # CROP PREDICTION
         crop_input = np.array([[N,P,K,temp,humidity,ph,rainfall]])
 
         crop_probs = crop_model.predict_proba(crop_input)[0]
@@ -198,13 +229,14 @@ if predict:
 
         for crop,conf in zip(top3_crops,top3_conf):
 
+            icon = crop_icons.get(crop.lower(),"🌱")
+
             st.progress(float(conf))
-            st.write(f"**{crop} — {conf*100:.2f}%**")
+
+            st.write(f"{icon} **{crop} — {conf*100:.2f}% confidence**")
 
 
-
-        # Fertilizer prediction
-
+        # FERTILIZER
         crop_encoded = fert_crop_encoder.transform([top3_crops[0]])[0]
 
         fert_input = np.array([[N,P,K,temp,humidity,rainfall,crop_encoded]])
@@ -223,10 +255,8 @@ if predict:
         st.success(f"{fert_label} — {fert_conf*100:.2f}% confidence")
 
 
-
-        # Feature importance
-
-        st.subheader("📊 Feature Importance")
+        # FEATURE IMPORTANCE
+        st.subheader("📊 Model Feature Importance")
 
         importances = crop_model.calibrated_classifiers_[0].estimator.feature_importances_
 
@@ -246,5 +276,4 @@ if predict:
 
     except Exception:
 
-        st.error("Weather fetch failed. Try 'Delhi' or 'Mumbai'.")
-
+        st.error("Weather API failed. Try a bigger city like Delhi, Indore, Jaipur.")
