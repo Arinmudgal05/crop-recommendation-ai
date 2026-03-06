@@ -46,12 +46,14 @@ def fetch_weather(city):
 st.markdown("""
 <style>
 
+/* Background */
 .stApp{
 background-image:url("https://images.unsplash.com/photo-1500937386664-56d1dfef3854");
 background-size:cover;
 background-attachment:fixed;
 }
 
+/* Title */
 .title{
 text-align:center;
 font-size:55px;
@@ -59,6 +61,7 @@ font-weight:800;
 color:#1b4332;
 }
 
+/* Subtitle */
 .subtitle{
 text-align:center;
 font-size:22px;
@@ -66,20 +69,52 @@ color:#344e41;
 margin-bottom:30px;
 }
 
+/* Card */
 .card{
-background:rgba(255,255,255,0.85);
+background:rgba(255,255,255,0.9);
 padding:35px;
 border-radius:18px;
 box-shadow:0 8px 30px rgba(0,0,0,0.15);
 }
 
-button[kind="primary"]{
-background:#2d6a4f;
-border:none;
-border-radius:10px;
-font-weight:bold;
+/* INPUT LABELS */
+label{
+color:#1b4332 !important;
+font-weight:600;
 }
 
+/* NUMBER INPUT TEXT */
+input{
+color:#000000 !important;
+font-weight:600 !important;
+}
+
+/* NUMBER INPUT BOX */
+div[data-baseweb="input"]{
+background:white !important;
+border-radius:8px !important;
+}
+
+/* TEXT INPUT */
+textarea, input[type="text"]{
+color:#000000 !important;
+background:white !important;
+}
+
+/* BUTTON */
+button[kind="primary"]{
+background:#2d6a4f !important;
+color:white !important;
+font-weight:bold !important;
+border-radius:10px;
+}
+
+/* BUTTON HOVER */
+button[kind="primary"]:hover{
+background:#1b4332 !important;
+}
+
+/* RAIN ANIMATION */
 .rain{
 position:fixed;
 width:100%;
@@ -91,7 +126,6 @@ pointer-events:none;
 
 </style>
 """, unsafe_allow_html=True)
-
 
 # -------------------------
 # HEADER
@@ -213,3 +247,4 @@ if predict:
     except Exception:
 
         st.error("Weather fetch failed. Try 'Delhi' or 'Mumbai'.")
+
