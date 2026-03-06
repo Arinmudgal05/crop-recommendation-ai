@@ -32,19 +32,11 @@ def fetch_weather(city):
 
     url = f"https://api.openweathermap.org/data/2.5/weather?q={city}&appid={api_key}&units=metric"
 
-    response = requests.get(url)
+    response = requests.get(url).json()
 
-    if response.status_code != 200:
-        raise Exception("Weather API request failed")
-
-    data = response.json()
-
-    if "main" not in data:
-        raise Exception("Invalid city name")
-
-    temperature = data["main"]["temp"]
-    humidity = data["main"]["humidity"]
-    rainfall = data.get("rain", {}).get("1h", 0)
+    temperature = response["main"]["temp"]
+    humidity = response["main"]["humidity"]
+    rainfall = response.get("rain", {}).get("1h", 0)
 
     return temperature, humidity, rainfall
 
@@ -281,6 +273,7 @@ if predict:
     except Exception:
 
         st.error("Weather API failed. Try a bigger city like Delhi, Indore, Jaipur.")
+
 
 
 
