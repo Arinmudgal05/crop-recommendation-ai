@@ -28,29 +28,23 @@ crop_model, crop_encoder, fert_model, fert_encoder, fert_crop_encoder, metadata 
 # WEATHER FUNCTION
 # -------------------------
 def fetch_weather(city):
+    api_key = st.secrets["weather_api"]
 
-    api_key = st.secrets.get("weather_api")
+    url = f"https://api.openweathermap.org/data/2.5/weather?q={city}&appid={api_key}&units=metric"
 
-    if not city:
-        raise Exception("City missing")
+    response = requests.get(url)
 
-    # STEP 1 — Get coordinates from city name
-    geo_url = f"http://api.openweathermap.org/geo/1.0/direct?q={city}&limit=1&appid={api_key}"
-    geo_response = requests.get(geo_url).json()
+    if response.status_code != 200:
+        raise Exception("Weather API request failed")
 
-    if len(geo_response) == 0:
-        raise Exception("Location not found")
+    data = response.json()
 
-    lat = geo_response[0]["lat"]
-    lon = geo_response[0]["lon"]
+    if "main" not in data:
+        raise Exception("Invalid city name")
 
-    # STEP 2 — Fetch weather using coordinates
-    weather_url = f"https://api.openweathermap.org/data/2.5/weather?lat={lat}&lon={lon}&appid={api_key}&units=metric"
-    weather_response = requests.get(weather_url).json()
-
-    temperature = weather_response["main"]["temp"]
-    humidity = weather_response["main"]["humidity"]
-    rainfall = weather_response.get("rain", {}).get("1h", 0)
+    temperature = data["main"]["temp"]
+    humidity = data["main"]["humidity"]
+    rainfall = data.get("rain", {}).get("1h", 0)
 
     return temperature, humidity, rainfall
 
@@ -287,5 +281,6 @@ if predict:
     except Exception:
 
         st.error("Weather API failed. Try a bigger city like Delhi, Indore, Jaipur.")
+
 
 
